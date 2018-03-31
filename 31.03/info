@@ -1,4 +1,4 @@
-Fit line ma pare parametrów przybliżania linii, przetestowałam parę i dużych różnic w wynikach nie znalazłam
+﻿Fit line ma pare parametrów przybliżania linii, przetestowałam parę i dużych różnic w wynikach nie znalazłam
 Wyeliminowane linie z tym samym nachyleniem (czyli te same linie).
 
 Approx zwraca żółte punkty, czerwone linie to nasze przybliżenie które by ktoś uzyskiwał.
@@ -6,3 +6,10 @@ Ogólnie to jeszcze można robić filtr by nie było to samo nachylenie, ale tut
 Dlatego tutaj więcej linii.
 
 Fit line zwraca vektor i punkt dowolny na linii. Na zdjęciach punkty w fitline zaznaczyłam które punkty fit line widzi.
+
+W best_of_fitline to nad czym pracowałam wczoraj. To co mi się udało z tym uzyskać. Ogólnie to fit line świetny jak szukasz linii o danym nachyleniu
+np pionową czy poziomą. To najszybsza byłaby ta metoda.
+Ale po rysunkach możesz ocenić czy dalej walczyć z fitline. Bo approx poza tylko uruchomieniem i zobaczeniem jak działa to nie rozwijałam
+tak mocno jak fitline.
+
+W wiki będzie to opisane z rysunkami :)
