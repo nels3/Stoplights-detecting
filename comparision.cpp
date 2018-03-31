@@ -31,7 +31,7 @@ public:
 	int maskx1 = 0;
 	int masky1 = CAM_RES_Y;
 	int maskx2 = 0;
-	int masky2 = 240;
+	int masky2 = 200;
 
 	int maskx3 = 100;
 	int masky3 = 60;
@@ -86,8 +86,8 @@ public:
 	void mask(Mat &input, Mat &output) {
 		Mat mask = Mat::zeros(cv::Size(640, 360), CV_8UC1);
 		fillConvexPoly(mask, mask_point.trapez, 6, cv::Scalar(255, 0, 0));
-		//namedWindow("maska", CV_WINDOW_AUTOSIZE);
-		//imshow("maska", mask);
+		namedWindow("maska", CV_WINDOW_AUTOSIZE);
+		imshow("maska", mask);
 		bitwise_and(input, mask, output);
 	}
 	void make_canny(Mat &input, Mat &output) {
@@ -173,7 +173,20 @@ public:
 
 		warpPerspective(input, output, M, Size(640, 360));
 	}
+	void edge(Mat &input, Mat &output, int thresh) {
+		Mat kernel, thresh_out;
+		kernel = Mat(1, 3, CV_32F);
+		kernel.at<float>(0, 0) = -1;
+		kernel.at<float>(0, 1) = 0;
+		kernel.at<float>(0, 2) = 1;
 
+		threshold(input, thresh_out, thresh, 255, THRESH_BINARY);
+
+		Mat element = getStructuringElement(0, Size(15, 15), Point(7, 7));
+		morphologyEx(thresh_out, thresh_out, 3, element);
+
+		filter2D(thresh_out, output, -1, kernel, Point(-1, -1), 0, BORDER_DEFAULT);
+	}
 };
 
 car_function car;
@@ -186,37 +199,50 @@ int main()
 	Mat img_gray(CAM_RES_Y, CAM_RES_X, CV_8UC1);
 	Mat img_bird(CAM_RES_Y, CAM_RES_X, CV_8UC1);
 	Mat img_canny(CAM_RES_Y, CAM_RES_X, CV_8UC1);
+
+	Mat edge(CAM_RES_Y, CAM_RES_X, CV_8UC1);
 	Mat img_contours(CAM_RES_Y, CAM_RES_X, CV_8UC3);
 	Mat img_contours2(CAM_RES_Y, CAM_RES_X, CV_8UC3);
 	Mat img_lanes(CAM_RES_Y, CAM_RES_X, CV_8UC3);
 
 	
-	const string file_name = "15.jpg";
+	const string file_name = "10.jpg";
 	img = imread(file_name);
 	if (!img.data) {
 		cout << "Nie odnalezionu pliku " << file_name;
 		return -1;
 	}
+	namedWindow("value", WINDOW_AUTOSIZE);
+	int thresh = 200;
 
-	//while (true) {
+	createTrackbar("Thresh", "value", &thresh, 300, NULL);
 
-	car.convert_to_gray(img, img_gray);
-	//car.showBirdView(img_gray,img_bird);
-	car.make_blur(img_gray, img_gray);
-	car.make_canny(img_gray, img_canny);
-	car.mask(img_canny, img_canny);
-	
-	car.fit_line(img_canny, img_contours);
-	namedWindow("fit line", CV_WINDOW_AUTOSIZE);
-	imshow("fit line", img_contours);
+	while (true) {
 
-	//car.contours(img_canny, img_contours2);
-	//namedWindow("approx poly", CV_WINDOW_AUTOSIZE);
-	//imshow("approx poly", img_contours2);
+		car.convert_to_gray(img, img_gray);
+		//car.showBirdView(img_gray,img_bird);
+		car.make_blur(img_gray, img_gray);
+		car.edge(img_gray, edge, thresh);
 
-	namedWindow("input", CV_WINDOW_AUTOSIZE);
-	imshow("input", img);
-		
+		//car.make_canny(img_gray, img_canny);
+
+		//car.mask(img_canny, img_canny);
+		//car.mask(edge, edge);
+		car.mask(edge, edge);
+		//car.fit_line(img_canny, img_contours);
+		//namedWindow("fit line", CV_WINDOW_AUTOSIZE);
+		//imshow("fit line", img_contours);
+
+		//Mat img_contours2(CAM_RES_Y, CAM_RES_X, CV_8UC3);
+		Mat img_contours2 = Mat::zeros(CAM_RES_Y, CAM_RES_X, CV_8UC3);
+		car.contours(edge, img_contours2);
+		namedWindow("approx poly", CV_WINDOW_AUTOSIZE);
+		imshow("approx poly", img_contours2);
+
+		namedWindow("input", CV_WINDOW_AUTOSIZE);
+		imshow("input", img);
+		waitKey(200);
+	}
 	waitKey(0);
 	return(0);
 }
