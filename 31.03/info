@@ -1,0 +1,8 @@
+Fit line ma pare parametrów przybliżania linii, przetestowałam parę i dużych różnic w wynikach nie znalazłam
+Wyeliminowane linie z tym samym nachyleniem (czyli te same linie).
+
+Approx zwraca żółte punkty, czerwone linie to nasze przybliżenie które by ktoś uzyskiwał.
+Ogólnie to jeszcze można robić filtr by nie było to samo nachylenie, ale tutaj było by to więcej roboty niż przy fit line by to wyeliminować. 
+Dlatego tutaj więcej linii.
+
+Fit line zwraca vektor i punkt dowolny na linii. Na zdjęciach punkty w fitline zaznaczyłam które punkty fit line widzi.
