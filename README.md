@@ -1,2 +1,1 @@
-# sel_od
-Testowanie funkcji dla selfie
+Testowanie funkcji Fitline i approxPolyPD. Opis w wiki, zdjęcia także w folderach.
