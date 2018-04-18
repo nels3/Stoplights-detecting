@@ -1,8 +1,11 @@
-Testowanie różnych funkcji:
+#Testowanie różnych funkcji:
 
-Testowanie funkcji Fitline i approxPolyPD. Opis w wiki, zdjęcia także w folderach.
+1. Testowanie funkcji Fitline i approxPolyPD. Opis w wiki, zdjęcia także w folderach.
+
 -> fitlinebest.cpp
+
 -> comparision.cpp
 
-Testowanie szukania sygnalizatora świetlnego. Opis w wiki.
+2. Testowanie szukania sygnalizatora świetlnego. Opis w wiki.
+
 ->trafficlights.cpp
