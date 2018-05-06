@@ -3,7 +3,6 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include "TrafficLightDetector.h"
 
 #define CAM_RES_X 640
 #define CAM_RES_Y 360

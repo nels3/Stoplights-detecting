@@ -1,9 +1,12 @@
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/imgcodecs/imgcodecs.hpp"
+#include "opencv2/opencv.hpp"
+#include "opencv2/core/core.hpp"
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include "TrafficLightDetector.h"
 
 #define CAM_RES_X 640
 #define CAM_RES_Y 360
@@ -29,6 +32,7 @@ public:
 	int width=0;
 	//predictable height of light base
 	int height=0;
+	bool found= false;
 	//predictable corners of light base
 	cv::Point upperleft;
 	cv::Point downright;
@@ -49,7 +53,7 @@ public:
 	int low_bright = 220;
 	int up_bright = 240;
 	int thresh_value = 200;
-
+	int counter;
 	//values use in HoughCircle
 	//value that is use in Hough Circle, how close can circles be next to each other
 	int param1 = 140;//200;
@@ -100,7 +104,7 @@ public:
 	void find_red_stop_lights(cv::Mat &input, cv::Mat &output);
 	void find_green_stop_lights(cv::Mat &input, cv::Mat &output);
 	uint8_t check_status();
-	uint8_t searching_for_stop_light(cv::Mat input, cv::Mat output, cv::Mat input2);
+	uint8_t searching_for_stop_light(cv::Mat input, cv::Mat output);
 }light;
 
 //basic split, up and down value needed
@@ -132,6 +136,7 @@ void LightDetector::make_split_red(cv::Mat &input, cv::Mat &output, cv::Mat &hsv
 //function spliting to black image
 void LightDetector::make_split_black(cv::Mat &input, cv::Mat &output, cv::Mat &hsv) {
 	cvtColor(input, hsv, CV_BGR2HSV);
+
 	inRange(hsv, cv::Scalar(0, 0, 0,0), cv::Scalar(180, 255, 70,0),output);
 }
 
@@ -144,18 +149,39 @@ void LightDetector::prepare_image(cv::Mat &input, cv::Mat &output) {
 
 //finding where the biggest black spot on the image is
 void LightDetector::find_black_spot(cv::Mat &input, cv::Mat &output, std::vector<std::vector<cv::Point> > &contours) {
+	black_rectangle.empty();	
+	contours.clear();
 	findContours(input, contours, light.hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE); // Find the contours in the image
-
+	
 	int max_contour_number = 0;
-	int largest_area = 0;
+	int largest_area;
+	int prev_largest_area = largest_area;
+	largest_area = 0;
 	for (int i = 0; i< contours.size(); i++) // iterate through each contour. 
 	{
 		double area = contourArea(contours[i], false);  //  Find the area of contour
-		if (area>largest_area) {
+		if (area>largest_area && area > 9000 && area < 25000) {
 			largest_area = area;
+			counter ++;
+			std::cout<<area<<"..."<<counter<<std::endl;
+			
 			light.largest_contour_index = i;                //Store the index of largest contour
 			black_rectangle = boundingRect(contours[i]); // Find the bounding rectangle for biggest contour
 		}
+	}
+
+	if (abs(largest_area-prev_largest_area) <1500){
+		counter = counter + 1;
+		if (counter>20)
+			counter = 20;
+	}
+	else{
+		counter = counter - 1;
+		if (counter < 0)
+			counter = 0;
+	}
+	if (counter >5){
+		std::cout<<"mam"<<std::endl;
 	}
 	//giving values to black_base - variable that stores where stop light is
 	black_base.width = black_rectangle.width;
@@ -167,7 +193,7 @@ void LightDetector::find_black_spot(cv::Mat &input, cv::Mat &output, std::vector
 //function drawing rectangle with the biggest black spot
 void LightDetector::draw_black_spot(cv::Mat &output, std::vector<std::vector<cv::Point> > &contours) {
 	cv::Scalar color(255, 255, 255);
-	drawContours(output, contours, light.largest_contour_index, color, CV_FILLED, 8, light.hierarchy); // Draw the largest contour using previously stored index.
+	//drawContours(output, contours, light.largest_contour_index, color, CV_FILLED, 8, light.hierarchy); // Draw the largest contour using previously stored index.
 	rectangle(output, black_rectangle, cv::Scalar(0, 255, 0), 1, 8, 0);
 }
 
@@ -179,7 +205,7 @@ void LightDetector::blur(cv::Mat &input, cv::Mat &output) {
 
 //function using HoughCircle to detect circle
 void LightDetector::find_circle(cv::Mat &input, std::vector<cv::Vec3f> &circles) {
-	HoughCircles(input, circles, CV_HOUGH_GRADIENT, 1, input.rows / 8, light.param1, light.param2, 0, light.max_radius);
+	HoughCircles(input, circles, CV_HOUGH_GRADIENT, 60, input.rows / 8, light.param1, light.param2, 0, light.max_radius);
 }
 
 //function drawing specific circle
@@ -333,36 +359,34 @@ void LightDetector::find_green_stop_lights(cv::Mat &input, cv::Mat &output) {
 uint8_t LightDetector::check_status() {
 	uint8_t status = 0;
 	//we are searching for base
-	if (black_base.width == 0)
+	if (black_base.found == false)
 		status = 1;
 	//we are looking for red circle
 	else if (red.found == false){
 		status = 2;
 		light.param2 = light.param2 - 1;
+		if (light.param2 < 10){
+			light.param2 = 25;
+		}
 	}
-	//we are waiting for green change in light
-	else if (red.found == true and green.found == false) 
-		status = 3;
-	//we have green light
-	else if (green.found == true) 
-		status = 4;
+	
 	return status;
 }
 
 //main method
-uint8_t LightDetector::searching_for_stop_light(cv::Mat input, cv::Mat output, cv::Mat input2) {
+uint8_t LightDetector::searching_for_stop_light(cv::Mat input, cv::Mat output) {
 	cv::Mat display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
 	switch (check_status()) {
 	case 1:
-		std::cout << "Searching for base" << std::endl;
+		//std::cout << "Searching for base" << std::endl;
 		//finding where black stop light base is:
 		light.find_black_stop_lights(input, output);
 		break;
 	case 2:
-		light.find_red_stop_lights(input, display);
+		light.find_red_stop_lights(input, output);
 		break;
 	case 3:
-		light.find_green_stop_lights(input, display);
+		light.find_green_stop_lights(input, output);
 		break;
 	case 4:
 		//we found green light
@@ -375,7 +399,7 @@ uint8_t LightDetector::searching_for_stop_light(cv::Mat input, cv::Mat output, c
 int main()
 {
 	cv::Mat frame(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	cv::Mat display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+
 	
 	cv::namedWindow("frame", CV_WINDOW_AUTOSIZE);
 	cv::namedWindow("display", CV_WINDOW_AUTOSIZE);
@@ -384,29 +408,30 @@ int main()
 	//createTrackbar("param2", "img", &light.param2, 300, NULL);
 	//createTrackbar("thresh", "img", &light.thresh, 300, NULL);
 	
-	VideoCapture capture;
-	capture.open(0, CAP_V4L2);
+	cv::VideoCapture capture;
+	capture.open(0, cv::CAP_V4L2);
 	if (!capture.isOpened()) {
 		std::cout << "error with camera" << std::endl;
 	}
 	else {
-		capture.set(CAP_PROP_FRAME_WIDTH, 640);
-		capture.set(CAP_PROP_FRAME_HEIGHT, 360);
-		capture.set(CAP_PROP_CONVERT_RGB, false);
-		cout << "MODE" << capture.get(CAP_PROP_MODE) << endl;
-		cout << "RGB" << capture.get(CAP_PROP_CONVERT_RGB) << endl;
+		capture.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+		capture.set(cv::CAP_PROP_FRAME_HEIGHT, 360);
+		capture.set(cv::CAP_PROP_CONVERT_RGB, true);
+		std::cout << "MODE" << capture.get(cv::CAP_PROP_MODE) << std::endl;
+		std::cout << "RGB" << capture.get(cv::CAP_PROP_CONVERT_RGB) << std::endl;
 	}
 
 	while (true) {
 		capture >> frame;
-		uint8_t status = light.searching_for_stop_light(frame, display, frame2);
+		cv::Mat display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+		uint8_t status = light.searching_for_stop_light(frame, display);
 		if (status == 4) {
 			std::cout << "GO!!!" << std::endl;
 		}
 		else {
-			std::cout << "WAIT!!!" << std::endl;
+			//std::cout << "WAIT!!!" << std::endl;
 		}
-		cv::waitKey(100);
+		cv::waitKey(700);
 	
 		
 		imshow("display", display);
@@ -415,7 +440,7 @@ int main()
 
 	capture.release();
 
-	waitKey();
+	cv::waitKey();
 	return 0;
 }
 
