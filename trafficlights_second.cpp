@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "TrafficLightDetector.h"
-using namespace cv;
-using namespace std;
 
 #define CAM_RES_X 640
 #define CAM_RES_Y 360
@@ -32,10 +30,10 @@ public:
 	//predictable height of light base
 	int height=0;
 	//predictable corners of light base
-	Point upperleft;
-	Point downright;
-	Point upperright;
-	Point downleft;
+	cv::Point upperleft;
+	cv::Point downright;
+	cv::Point upperright;
+	cv::Point downleft;
 };
 
 //class storing variables and function to detect street lights
@@ -69,78 +67,83 @@ public:
 	//stores black rectangle
 	base_specification black_base;
 
-	vector<Vec3f> circles_green;
-	vector<Vec3f> circles_green_sym;
-	vector<Vec3f> circles_red;
+	std::vector<cv::Vec3f> circles_green;
+	std::vector<cv::Vec3f> circles_red;
 
 	//spliting function, depending of the output color
-	void make_split_black(Mat &input, Mat &output, Mat &hsv);
-	void make_split(Mat &input, Mat &output, int low, int up, Mat &hsv, vector<Mat> &hsv_split);
-	void make_split_green(Mat &input, Mat &output, Mat &hsv);
-	void make_split_red(Mat &input, Mat &output, Mat &hsv);
+	void make_split_black(cv::Mat &input, cv::Mat &output, cv::Mat &hsv);
+	void make_split(cv::Mat &input, cv::Mat &output, int low, int up, cv::Mat &hsv, std::vector<cv::Mat> &hsv_split);
+	void make_split_green(cv::Mat &input, cv::Mat &output, cv::Mat &hsv);
+	void make_split_red(cv::Mat &input, cv::Mat &output, cv::Mat &hsv);
 
-	void prepare_image(Mat &input, Mat &output);
-	void blur(Mat &input, Mat &output);
-	void find_circle(Mat &input, vector<Vec3f> &circles);
-	void draw_circle(Mat &output, vector<Vec3f> &circles);
-	void find_red_lights(Mat &input);
+	void prepare_image(cv::Mat &input, cv::Mat &output);
+	void blur(cv::Mat &input, cv::Mat &output);
+	void find_circle(cv::Mat &input, std::vector<cv::Vec3f> &circles);
+	void draw_circle(cv::Mat &output, std::vector<cv::Vec3f> &circles);
+	void find_red_lights(cv::Mat &input);
 	void predict_street_lights();
-	void draw_predicted_street_lights(Mat &input);
-	void find_green_lights(Mat &input, vector<Vec3f> &circles);
+	void draw_predicted_street_lights(cv::Mat &input);
+	void find_green_lights(cv::Mat &input, std::vector<cv::Vec3f> &circles);
 
-	void find_green_spots(Mat &input);
+	void find_green_spots(cv::Mat &input);
 
-	//function with finding black rectangle
-	vector<vector<Point> > contours;
-	vector<Vec4i>  hierarchy;
-	Rect black_rectangle;
+	//methods with finding black rectangle
+	std::vector<std::vector<cv::Point> > contours;
+	std::vector<cv::Vec4i>  hierarchy;
+	cv::Rect black_rectangle;
 	int largest_contour_index = 0;
-	void find_black_spot(Mat &input, Mat &output, vector<vector<Point> > &contours);
-	void draw_black_spot(Mat &output, vector<vector<Point> > &contours);
+	void find_black_spot(cv::Mat &input, cv::Mat &output, std::vector<std::vector<cv::Point> > &contours);
+	void draw_black_spot(cv::Mat &output, std::vector<std::vector<cv::Point> > &contours);
 
+	//main methods
+	void find_black_stop_lights(cv::Mat &input, cv::Mat &output);
+	void find_red_stop_lights(cv::Mat &input, cv::Mat &output);
+	void find_green_stop_lights(cv::Mat &input, cv::Mat &output);
+	uint8_t check_status();
+	uint8_t searching_for_stop_light(cv::Mat input, cv::Mat output, cv::Mat input2);
 }light;
 
 //basic split, up and down value needed
-void LightDetector::make_split(Mat &input, Mat &output, int low, int up, Mat &hsv, vector<Mat> &hsv_split) {
+void LightDetector::make_split(cv::Mat &input, cv::Mat &output, int low, int up, cv::Mat &hsv, std::vector<cv::Mat> &hsv_split) {
 	cvtColor(input, hsv, CV_BGR2HSV);
 	split(hsv, hsv_split);
 	inRange(hsv_split[0], low, up, output);
 }
 
 //function spliting to green image
-void LightDetector::make_split_green(Mat &input, Mat &output, Mat &hsv) {
+void LightDetector::make_split_green(cv::Mat &input, cv::Mat &output, cv::Mat &hsv) {
 	cvtColor(input, hsv, CV_BGR2HSV);
 	inRange(hsv, cv::Scalar(60, 50, 50, 0), cv::Scalar(90, 255, 255, 0), output);
 }
 
 //spliting to red image
-void LightDetector::make_split_red(Mat &input, Mat &output, Mat &hsv) {
+void LightDetector::make_split_red(cv::Mat &input, cv::Mat &output, cv::Mat &hsv) {
 	cvtColor(input, hsv, CV_BGR2HSV);
 	cv::Mat mask1(CAM_RES_Y, CAM_RES_X, CV_8UC1);
 	cv::Mat mask2(CAM_RES_Y, CAM_RES_X, CV_8UC1);
 
 	inRange(hsv, cv::Scalar(0, 40, 40,0), cv::Scalar(10, 250,250,0), mask1);
 	inRange(hsv, cv::Scalar(160, 40, 40,0), cv::Scalar(180, 255, 255,0), mask2);
-	//inRange(hsv, cv::Scalar(0, 0, 0, 0), cv::Scalar(180, 255, 70, 0), output);
+	//inRange(hsv, cv::cv::Scalar(0, 0, 0, 0), cv::cv::Scalar(180, 255, 70, 0), output);
 	output = mask1 | mask2;
 
 }
 
 //function spliting to black image
-void LightDetector::make_split_black(Mat &input, Mat &output, Mat &hsv) {
+void LightDetector::make_split_black(cv::Mat &input, cv::Mat &output, cv::Mat &hsv) {
 	cvtColor(input, hsv, CV_BGR2HSV);
 	inRange(hsv, cv::Scalar(0, 0, 0,0), cv::Scalar(180, 255, 70,0),output);
 }
 
 //bluring, thresholding and canny on image
-void LightDetector::prepare_image(Mat &input, Mat &output) {
+void LightDetector::prepare_image(cv::Mat &input, cv::Mat &output) {
 	blur(input, input);
-	threshold(input, output, thresh, 255, THRESH_BINARY);
+	threshold(input, output, thresh, 255, cv::THRESH_BINARY);
 	//Canny(input, output, 100, 200);
 }
 
 //finding where the biggest black spot on the image is
-void LightDetector::find_black_spot(Mat &input, Mat &output, vector<vector<Point> > &contours) {
+void LightDetector::find_black_spot(cv::Mat &input, cv::Mat &output, std::vector<std::vector<cv::Point> > &contours) {
 	findContours(input, contours, light.hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE); // Find the contours in the image
 
 	int max_contour_number = 0;
@@ -162,39 +165,39 @@ void LightDetector::find_black_spot(Mat &input, Mat &output, vector<vector<Point
 }
 
 //function drawing rectangle with the biggest black spot
-void LightDetector::draw_black_spot(Mat &output, vector<vector<Point> > &contours) {
-	Scalar color(255, 255, 255);
+void LightDetector::draw_black_spot(cv::Mat &output, std::vector<std::vector<cv::Point> > &contours) {
+	cv::Scalar color(255, 255, 255);
 	drawContours(output, contours, light.largest_contour_index, color, CV_FILLED, 8, light.hierarchy); // Draw the largest contour using previously stored index.
-	rectangle(output, black_rectangle, Scalar(0, 255, 0), 1, 8, 0);
+	rectangle(output, black_rectangle, cv::Scalar(0, 255, 0), 1, 8, 0);
 }
 
 
 //making GaussianBlur
-void LightDetector::blur(Mat &input, Mat &output) {
-	GaussianBlur(input, output, Size(9, 9), 2, 2);
+void LightDetector::blur(cv::Mat &input, cv::Mat &output) {
+	GaussianBlur(input, output, cv::Size(9, 9), 2, 2);
 }
 
 //function using HoughCircle to detect circle
-void LightDetector::find_circle(Mat &input, vector<Vec3f> &circles) {
+void LightDetector::find_circle(cv::Mat &input, std::vector<cv::Vec3f> &circles) {
 	HoughCircles(input, circles, CV_HOUGH_GRADIENT, 1, input.rows / 8, light.param1, light.param2, 0, light.max_radius);
 }
 
 //function drawing specific circle
-void LightDetector::draw_circle(Mat &output, vector<Vec3f> &circles) {
+void LightDetector::draw_circle(cv::Mat &output, std::vector<cv::Vec3f> &circles) {
 
 	for (size_t i = 0; i < circles.size(); i++)
 	{
-		Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
+		cv::Point center(cvRound(circles[i][0]), cvRound(circles[i][1]));
 		int radius = cvRound(circles[i][2]);
 		// circle center
-		circle(output, center, 3, Scalar(0, 255, 0), -1, 8, 0);
+		circle(output, center, 3, cv::Scalar(0, 255, 0), -1, 8, 0);
 		// circle outline
-		circle(output, center, radius, Scalar(255, 0, 255), 3, 8, 0);
+		circle(output, center, radius, cv::Scalar(255, 0, 255), 3, 8, 0);
 	}
 }
 
 //function detecting red street light
-void LightDetector::find_red_lights(Mat &input) {
+void LightDetector::find_red_lights(cv::Mat &input) {
 	blur(input, input);
 	//prepare_image(input, input);
 	find_circle(input, circles_red);
@@ -203,7 +206,7 @@ void LightDetector::find_red_lights(Mat &input) {
 		red.x = circles_red[0][0];
 		red.y = circles_red[0][1];
 		red.r = circles_red[0][2];
-		cout << "middle: x = " << light.red.x << " y = " << light.red.y << " radius = " << light.red.r << endl;
+		std::cout << "middle: x = " << light.red.x << " y = " << light.red.y << " radius = " << light.red.r << std::endl;
 		red.found = true;
 	}
 	//when there are more than one red circle
@@ -212,11 +215,11 @@ void LightDetector::find_red_lights(Mat &input) {
 		for (size_t i = 1; i < circles_red.size(); i++) {
 			for (size_t j = 0; j < i; j++) {
 				if (abs(circles_red[j][0] - circles_red[i][0]) < 10 && abs(circles_red[j][1] - circles_red[i][1]) < 10 && circles_red[j][2] != 0) {
-					cout << "found more the same red circle" << endl;
+					std::cout << "found more the same red circle" << std::endl;
 					red.found = true;
 				}
 				else {
-					cout << "found more red circles" << endl;
+					std::cout << "found more red circles" << std::endl;
 					red.found = false;
 				}
 			}
@@ -226,41 +229,43 @@ void LightDetector::find_red_lights(Mat &input) {
 	}
 	//when error occurs or there isn't red circle
 	else {
-		cout << "Error in hough lines - no circles" << endl;
+		std::cout << "Error in hough lines - no circles" << std::endl;
 	}
 
 }
 
 //function detecting green street light
-void LightDetector::find_green_lights(Mat &input, vector<Vec3f> &circles) {
+void LightDetector::find_green_lights(cv::Mat &input, std::vector<cv::Vec3f> &circles) {
 	blur(input, input);
 	find_circle(input, circles_green);
 	//when there is only one red circle
-	if (circles_green.size() >0) {
+	if (circles.size() >0) {
 		green.found = true;
-		cout << "Green cricle found" << endl;
+		std::cout << "Green cricle found" << std::endl;
 	}
 	//when error occurs or there isn't red circle
 	else {
-		cout << "No green circles" << endl;
+		std::cout << "No green circles" << std::endl;
 	}
 }
 
 //function detecting number of green pixels
-void LightDetector::find_green_spots(Mat &input) {	
+void LightDetector::find_green_spots(cv::Mat &input) {	
 	if (green_latched == false) {
 		green_number = cv::countNonZero(input);
 		green_latched = true;
 	}
 	else {
-		if (cv::countNonZero(input) - green_number > 2000) {
+		if (cv::countNonZero(input) - green_number > 600) {
 			green.found = true;
-			cout << "Green light - go!!!" << endl;
+			//std::cout << "Green light - go!!!" << std::endl;
 		}
 		else {
-			cout << "No green light" << endl;
+			green.found = false;
+			//std::cout << "No green light" << std::endl;
 		}
 	}
+	//std::cout << countNonZero(input) << std::endl;
 }
 
 //function predicting base of street lights, making smaller spot to detect green light
@@ -277,122 +282,148 @@ void LightDetector::predict_street_lights() {
 }
 
 //drawing base of street lights
-void LightDetector::draw_predicted_street_lights(Mat &input) {
-	rectangle(input, base.upperleft, base.downright, Scalar(0, 255, 0), 2, 8, 0);
+void LightDetector::draw_predicted_street_lights(cv::Mat &input) {
+	rectangle(input, base.upperleft, base.downright, cv::Scalar(0, 255, 0), 2, 8, 0);
+}
+
+//detecting black area
+void LightDetector::find_black_stop_lights(cv::Mat &input, cv::Mat &output) {
+	cv::Mat img(CAM_RES_Y, CAM_RES_X, CV_8UC1);
+	cv::Mat hsv(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+	make_split_black(input, img, hsv);
+	prepare_image(img, img);
+	find_black_spot(img, output, contours);
+	draw_black_spot(output, contours);
+}
+
+//detecting red lights
+void LightDetector::find_red_stop_lights(cv::Mat &input, cv::Mat &output) {
+	cv::Mat img(CAM_RES_Y, CAM_RES_X, CV_8UC1);
+	cv::Mat hsv(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+	//making ROI where black stop lights are
+	cv::Mat roi = input(black_rectangle);
+	//spliting to red color
+	make_split_red(roi, img, hsv);
+
+	//finding red cirles
+	find_red_lights(img);
+	draw_circle(roi, circles_red);
+	if (red.found == true) {
+		predict_street_lights();
+		draw_predicted_street_lights(output);
+	}
+	else {
+		std::cout << "Still looking for red circle" << std::endl;
+	}
+}
+
+//detecting red lights
+void LightDetector::find_green_stop_lights(cv::Mat &input, cv::Mat &output) {
+	cv::Mat img(CAM_RES_Y, CAM_RES_X, CV_8UC1);
+	cv::Mat hsv(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+	cv::Rect Rec(base.upperleft.x + black_base.upperleft.x, base.upperleft.y + black_base.upperleft.y, base.width, base.height);
+	//making roi for green light
+	cv::Mat roi = input(Rec);
+	make_split_green(roi, output, hsv);
+	//find_green_lights(img, circles_green);
+	find_green_spots(output);
+}
+
+//checking where in code we are
+uint8_t LightDetector::check_status() {
+	uint8_t status = 0;
+	//we are searching for base
+	if (black_base.width == 0)
+		status = 1;
+	//we are looking for red circle
+	else if (red.found == false){
+		status = 2;
+		light.param2 = light.param2 - 1;
+	}
+	//we are waiting for green change in light
+	else if (red.found == true and green.found == false) 
+		status = 3;
+	//we have green light
+	else if (green.found == true) 
+		status = 4;
+	return status;
+}
+
+//main method
+uint8_t LightDetector::searching_for_stop_light(cv::Mat input, cv::Mat output, cv::Mat input2) {
+	cv::Mat display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+	switch (check_status()) {
+	case 1:
+		std::cout << "Searching for base" << std::endl;
+		//finding where black stop light base is:
+		light.find_black_stop_lights(input, output);
+		break;
+	case 2:
+		light.find_red_stop_lights(input, display);
+		break;
+	case 3:
+		//starting frame without green light
+		//std::cout << "No green light_start" << std::endl;
+		light.find_green_stop_lights(input, display);
+		//std::cout << "No green light_end" << std::endl;
+		//stoping frame without green light
+
+		//starting frame with green light
+		//std::cout << "Green light_start" << std::endl;
+		light.find_green_stop_lights(input2, display);
+		//std::cout << "Green light_end" << std::endl;
+		//stoping frame with green light
+		break;
+	case 4:
+		//we found green light
+		break;
+	}
+	
+	return check_status();
 }
 
 int main()
 {
 	cv::Mat frame(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	//symulacja, okno z zielonym swiatlem
-	cv::Mat frame2(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	cv::Mat img_green_sym(CAM_RES_Y, CAM_RES_X, CV_8UC1);
-	cv::Mat green_display_sym(CAM_RES_Y, CAM_RES_X, CV_8UC1);
-	cv::namedWindow("display_green_sym", CV_WINDOW_AUTOSIZE);
+	cv::Mat display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
 	
-	cv::Mat hsv(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	cv::Mat img_red(CAM_RES_Y, CAM_RES_X, CV_8UC1);
-	cv::Mat img_black(CAM_RES_Y, CAM_RES_X, CV_8UC1);
-	cv::Mat img_green(CAM_RES_Y, CAM_RES_X, CV_8UC1);
-	cv::Mat img_roi(CAM_RES_Y, CAM_RES_X, CV_8UC1);
-	cv::Mat roi_frame(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-
-	cv::Mat red_display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	//cv::Mat black_display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	cv::Mat green_display(CAM_RES_Y, CAM_RES_X, CV_8UC4);
-	cv::namedWindow("img", CV_WINDOW_AUTOSIZE);
-	cv::namedWindow("display_red", CV_WINDOW_AUTOSIZE);
-	cv::namedWindow("display_green", CV_WINDOW_AUTOSIZE);
-	cv::namedWindow("Display", CV_WINDOW_AUTOSIZE);
-	vector<Mat> hsv_split;
+	cv::namedWindow("frame", CV_WINDOW_AUTOSIZE);
+	cv::namedWindow("display", CV_WINDOW_AUTOSIZE);
 	
 	//createTrackbar("param1", "img", &light.param1, 300, NULL);
 	//createTrackbar("param2", "img", &light.param2, 300, NULL);
 	//createTrackbar("thresh", "img", &light.thresh, 300, NULL);
 	
 	const std::string file_name = "test2_r.jpg";
-	const std::string file_name_sym = "test2_g.jpg"; //symulacja
 	frame = cv::imread(file_name);
-	frame2 = cv::imread(file_name_sym);
 	if (!frame.data) {
 		std::cout << "Nie odnalezionu pliku " << file_name;
 		return -1;
 	}
+
+	//symulation part:
+	cv::Mat frame2(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+	cv::Mat green_display_sym(CAM_RES_Y, CAM_RES_X, CV_8UC4);
+	const std::string file_name_sym = "test2_g.jpg"; //symulacja
+	frame2 = cv::imread(file_name_sym);
 	if (!frame2.data) {
 		std::cout << "Nie odnalezionu pliku " << file_name_sym;
 		return -1;
 	}
 
-	//frame.copyTo(red_display);
-
-	while (waitKey(20) != 27) {
-		if (light.black_base.width == 0) {
-			//finding where black stop light base is:
-			cv::Mat black_display(CAM_RES_Y, CAM_RES_X, CV_8UC4);  //new Mat to clear what was before
-			light.make_split_black(frame, img_black, hsv);
-			light.prepare_image(img_black, img_black);
-			light.find_black_spot(img_black, black_display, light.contours);
-			light.draw_black_spot(black_display, light.contours);
-			cout << "Searching for base" << endl;
+	while (cv::waitKey(20) != 27) {
+		uint8_t status = light.searching_for_stop_light(frame, display, frame2);
+		if (status == 4) {
+			std::cout << "GO!!!" << std::endl;
 		}
-
 		else {
-
-			if (light.red.found == false) {
-				//making ROI where black stop lights are
-				roi_frame = frame(light.black_rectangle);
-				//spliting to red color
-				light.make_split_red(roi_frame, img_red, hsv);
+			std::cout << "WAIT!!!" << std::endl;
+		}
+		cv::waitKey(100);
 	
-				//finding red cirles
-				light.find_red_lights(img_red);
-				light.draw_circle(roi_frame, light.circles_red);
-				if (light.red.found == true) {
-					light.predict_street_lights();
-					light.draw_predicted_street_lights(red_display);
-				}
-				else {
-					cout << "still looking for" << endl;
-				}
-			}
-			
-			else {
-				//Rectangle used to define region of interest
-				Rect Rec(light.base.upperleft.x+light.black_base.upperleft.x, light.base.upperleft.y + light.black_base.upperleft.y, light.base.width, light.base.height);
-				
-				//if (light.green.found == false) {
-				//starting symulation
-				cout << "No green light_start" << endl;
-				//making roi for green light
-				Mat roi_sym = frame(Rec);
-				light.make_split_green(roi_sym, img_green_sym, hsv);
-				light.find_green_lights(img_green_sym, light.circles_green_sym);
-				light.find_green_spots(img_green_sym);
-				cout << "No green light_end" << endl;
-				//stoping symulation
-				
-				cout << "Green light_start" << endl;
-				//making roi for green light
-				Mat roi = frame2(Rec);
-				light.make_split_green(roi, img_green, hsv);
-				light.find_green_lights(img_green, light.circles_green);
-				light.find_green_spots(img_green);
-				cout << "Green light_end" << endl;
-				//}
-				
-				cv::waitKey(600);
-
-			}
-			
-		}
-		//imshow("display_red", roi_frame);
-		//imshow("display_green_sym", roi_frame);
-		//imshow("display_red", img_red);
-		if (light.red.found == true) {
-			imshow("display_green_sym", img_green_sym);
-			imshow("display_green", img_green);
-		}
-		cv::waitKey(200);
+		
+		imshow("display", display);
+		imshow("frame", frame);
 	}
 
 	cv::waitKey(0);
